@@ -129,36 +129,6 @@ def matmul_splitk_stage2(
 
 
 
-@triton.jit
-def _matmat_single_writeback(
-    c_ptr, accumulator, pid_m, pid_n, M, N, stride_cm, stride_cn,
-    BLOCK_SIZE_M: tl.constexpr, BLOCK_SIZE_N: tl.constexpr, ACTIVATION: tl.constexpr
-):
-    accumulator=relu_custom(accumulator)
-    offs_cm = pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)
-    offs_cn = pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)
-    c_ptrs = c_ptr + stride_cm * offs_cm[:, None] + stride_cn * offs_cn[None, :]
-    c_mask = (offs_cm[:, None] < M) & (offs_cn[None, :] < N)
-    tl.store(c_ptrs, accumulator, mask=c_mask)
-
-@triton.jit
-def _matmat_parallel_writeback(
-    c_ptr, accumulator, pid_m, pid_n, M, N, stride_cm, stride_cn,
-    BLOCK_SIZE_M: tl.constexpr, BLOCK_SIZE_N: tl.constexpr, ACTIVATION: tl.constexpr
-):
-    """Writes back C with NPU vector core parallelism (tl.parallel)."""
-    SUB_BLK_M: tl.constexpr = BLOCK_SIZE_M // 4
-    accumulator=relu_custom(accumulator)
-    for s in tl.parallel(0, 4, bind_sub_block=True):
-        vec_sub_blk = tl.extract_slice(
-            accumulator, (s * SUB_BLK_M, 0), (SUB_BLK_M, BLOCK_SIZE_N), (1, 1)
-        )
-        offs_cm = pid_m * BLOCK_SIZE_M + s * SUB_BLK_M + tl.arange(0, SUB_BLK_M)
-        offs_cn = pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)
-        c_ptrs = c_ptr + stride_cm * offs_cm[:, None] + stride_cn * offs_cn[None, :]
-        c_mask = (offs_cm[:, None] < M) & (offs_cn[None, :] < N)
-        tl.store(c_ptrs, vec_sub_blk, mask=c_mask)
-
 
 def create_kernel_SplitK(
     name: str,
@@ -319,3 +289,4 @@ def matmul_wrapper_splitK(a, b, kernel_func):
     kernel_func(a, b, c)
 
     return c
+
