@@ -32,7 +32,7 @@ Ascend NPU 上的矩阵乘法需依赖分块技术（Tiling），将全局内存
 
 ### 安装步骤
 
-1. 安装 Ascend NPU 驱动及基础软件栈（参考 [华为官方文档](https://www.hiascend.com/document)）
+1. 安装 Ascend NPU 驱动及基础软件栈
 
 2. 安装依赖包：
 
